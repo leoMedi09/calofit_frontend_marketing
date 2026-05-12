@@ -3,12 +3,13 @@ import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/api_service.dart';
+import '../../../providers/balance_provider.dart';
 
 class SmartMealRegistrySheet extends StatefulWidget {
   const SmartMealRegistrySheet({Key? key}) : super(key: key);
 
-  static void show(BuildContext context) {
-    showModalBottomSheet(
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -26,7 +27,7 @@ class _SmartMealRegistrySheetState extends State<SmartMealRegistrySheet> {
 
   bool _isLoading = false;
   String? _errorMessage;
-  static final List<Map<String, dynamic>> _ingredients = [];
+  final List<Map<String, dynamic>> _ingredients = [];
 
   Future<void> _addIngredient() async {
     final qtyStrRaw = _qtyController.text.trim();
@@ -64,6 +65,7 @@ class _SmartMealRegistrySheetState extends State<SmartMealRegistrySheet> {
             _ingredients.add({
               'name': item['nombre'],
               'quantity': '${item['gramos_totales']}g (${item['cantidad']} ${item['unidad']})',
+              'grams': item['gramos_totales'],
               'kcal': item['calorias'],
               'p': item['proteinas_g'],
               'c': item['carbohidratos_g'],
@@ -428,7 +430,7 @@ class _SmartMealRegistrySheetState extends State<SmartMealRegistrySheet> {
               width: double.infinity,
               height: 54,
               child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: _ingredients.isEmpty ? null : _saveRegistro,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -444,6 +446,46 @@ class _SmartMealRegistrySheetState extends State<SmartMealRegistrySheet> {
         ),
       ),
     );
+  }
+
+  Future<void> _saveRegistro() async {
+    setState(() => _isLoading = true);
+    try {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.token == null) return;
+      final apiService = ApiService();
+      for (final ing in List.from(_ingredients)) {
+        await apiService.registrarManualAlimento(
+          nombre: ing['name'] as String,
+          calorias: (ing['kcal'] as num).toDouble(),
+          proteinasG: (ing['p'] as num).toDouble(),
+          carbohidratosG: (ing['c'] as num).toDouble(),
+          grasasG: (ing['g'] as num).toDouble(),
+          porcionG: (ing['grams'] as num? ?? 100).toDouble(),
+          token: auth.token!,
+        );
+      }
+      if (mounted) {
+        await Provider.of<BalanceProvider>(context, listen: false)
+            .fetchFullBalance(auth.token!);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registro guardado con éxito'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _ingredients.clear();
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Widget _totalMacroColumn(String label, String value, Color color) {

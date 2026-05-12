@@ -414,7 +414,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
         if (result['balance_actualizado'] != null) {
           balance.updateFromAssistant(result['balance_actualizado']);
-          balance.fetchFullBalance(token).catchError((e) => print("Silent refresh failed: \$e"));
+          await balance.fetchFullBalance(token);
         }
 
         setState(() {
@@ -494,10 +494,15 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     final logKeywords = [
       "comí", "comi", "almorzé", "almorcé", "cené", "desayuné", "tomé", "bebí", "ingerí",
       "registra", "anota", "apunta", "hice", "entrené", "corrí", "troté", "agregame", "clavé", "zampé",
-      "me clavé", "me zampé", "me comí", "sali", "salí", "fui", "correr", "caminar", "andar", "gym", "gimnasio", "pesas"
+      "me clavé", "me zampé", "me comí", "me tomé", "me bebí", "me comí", "me jalé",
+      "sali", "salí", "fui", "correr", "caminar", "andar", "gym", "gimnasio", "pesas",
+      "desayuné", "desayune", "almorcé", "almorce", "cené", "cene",
+      "tuve", "tomi", "tomé un", "tomé una", "bebí un", "bebí una",
+      "para el desayuno", "para el almuerzo", "para la cena",
+      "en el desayuno", "en el almuerzo", "en la cena",
     ];
-    
-    bool isLogIntent = logKeywords.any((k) => lowerText.startsWith(k) || lowerText.contains(" $k "));
+
+    bool isLogIntent = logKeywords.any((k) => lowerText.startsWith(k) || lowerText.contains(" $k ") || lowerText.contains("$k "));
 
     try {
       if (isLogIntent) {
@@ -508,7 +513,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         if (ok && result['balance_actualizado'] != null) {
           balance.updateFromAssistant(result['balance_actualizado']);
           // Actualización silenciosa de listas para la pantalla de Balance
-          balance.fetchFullBalance(token).catchError((e) => print("Silent refresh failed: $e"));
+          await balance.fetchFullBalance(token);
         }
 
         setState(() {
@@ -1139,7 +1144,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       final bool ok = result['success'] != false;
       if (ok && result['balance_actualizado'] != null) {
         balance.updateFromAssistant(result['balance_actualizado']);
-        balance.fetchFullBalance(token).catchError((e) => print("Silent refresh failed: $e"));
+        await balance.fetchFullBalance(token);
       }
 
       setState(() {
@@ -1192,7 +1197,12 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(width: 10),
           GestureDetector(
-            onTap: () => SmartMealRegistrySheet.show(context),
+            onTap: () async {
+              await SmartMealRegistrySheet.show(context);
+              if (!mounted) return;
+              final token = Provider.of<AuthProvider>(context, listen: false).token;
+              if (token != null) await Provider.of<BalanceProvider>(context, listen: false).fetchFullBalance(token);
+            },
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -1204,7 +1214,12 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(width: 6),
           GestureDetector(
-            onTap: () => RoutineBuilderSheet.show(context),
+            onTap: () async {
+              await RoutineBuilderSheet.show(context);
+              if (!mounted) return;
+              final token = Provider.of<AuthProvider>(context, listen: false).token;
+              if (token != null) await Provider.of<BalanceProvider>(context, listen: false).fetchFullBalance(token);
+            },
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(

@@ -3,12 +3,13 @@ import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/api_service.dart';
+import '../../../providers/balance_provider.dart';
 
 class RoutineBuilderSheet extends StatefulWidget {
   const RoutineBuilderSheet({Key? key}) : super(key: key);
 
-  static void show(BuildContext context) {
-    showModalBottomSheet(
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -26,7 +27,7 @@ class _RoutineBuilderSheetState extends State<RoutineBuilderSheet> {
 
   bool _isLoading = false;
   String? _errorMessage;
-  static final List<Map<String, dynamic>> _exercises = [];
+  final List<Map<String, dynamic>> _exercises = [];
 
   Future<void> _addExercise() async {
     final durationStrRaw = _durationController.text.trim();
@@ -455,10 +456,12 @@ class _RoutineBuilderSheetState extends State<RoutineBuilderSheet> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Rutina registrada con éxito'), backgroundColor: Colors.green),
           );
-          setState(() {
-            _exercises.clear();
-          });
-          Navigator.pop(context);
+          setState(() { _exercises.clear(); });
+          if (mounted) {
+            await Provider.of<BalanceProvider>(context, listen: false)
+                .fetchFullBalance(auth.token!);
+            Navigator.pop(context);
+          }
         }
       } else {
         if (mounted) {
