@@ -492,14 +492,60 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     
     // Palabras detonantes de REGISTRO
     final logKeywords = [
-      "comí", "comi", "almorzé", "almorcé", "cené", "desayuné", "tomé", "bebí", "ingerí",
-      "registra", "anota", "apunta", "hice", "entrené", "corrí", "troté", "agregame", "clavé", "zampé",
-      "me clavé", "me zampé", "me comí", "me tomé", "me bebí", "me comí", "me jalé",
-      "sali", "salí", "fui", "correr", "caminar", "andar", "gym", "gimnasio", "pesas",
-      "desayuné", "desayune", "almorcé", "almorce", "cené", "cene",
-      "tuve", "tomi", "tomé un", "tomé una", "bebí un", "bebí una",
-      "para el desayuno", "para el almuerzo", "para la cena",
-      "en el desayuno", "en el almuerzo", "en la cena",
+      // Comidas y bebidas
+      "comí", "comi",
+      "almorcé", "almorce",
+      "almorzé", "almorze",
+      "cené", "cene",
+      "desayuné", "desayune",
+      "tomé", "tome",
+      "bebí", "bebi",
+      "ingerí", "ingeri",
+
+      // Acciones de registro
+      "registra",
+      "anota",
+      "apunta",
+      "agregame", "agrégame",
+
+      // Actividades / ejercicios
+      "hice",
+      "entrené", "entrene",
+      "corrí", "corri",
+      "troté", "trote",
+      "salí", "sali",
+      "fui",
+      "correr",
+      "caminar",
+      "andar",
+      "gym",
+      "gimnasio",
+      "pesas",
+
+      // Expresiones coloquiales
+      "clavé", "clave",
+      "zampé", "zampe",
+      "me clavé", "me clave",
+      "me zampé", "me zampe",
+      "me comí", "me comi",
+      "me tomé", "me tome",
+      "me bebí", "me bebi",
+      "me jalé", "me jale",
+
+      // Frases contextuales
+      "tuve",
+      "tomé un", "tome un",
+      "tomé una", "tome una",
+      "bebí un", "bebi un",
+      "bebí una", "bebi una",
+
+      // Contexto de comidas
+      "para el desayuno",
+      "para el almuerzo",
+      "para la cena",
+      "en el desayuno",
+      "en el almuerzo",
+      "en la cena",
     ];
 
     bool isLogIntent = logKeywords.any((k) => lowerText.startsWith(k) || lowerText.contains(" $k ") || lowerText.contains("$k "));
