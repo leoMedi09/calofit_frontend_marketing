@@ -200,11 +200,6 @@ class AssistantMessageBubble extends StatelessWidget {
                   if (sec.tipo == 'ejercicio') {
                     return WorkoutCard(
                       section: sec,
-                      onAdd: onAction != null
-                          ? () => onAction!(sec.consultaId != null
-                              ? "CALOFIT_WORKOUT:${sec.consultaId}"
-                              : "Hice ${sec.nombre}")
-                          : null,
                       onSave: onSave != null ? () => onSave!(sec) : null,
                     );
                   }
