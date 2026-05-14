@@ -175,7 +175,6 @@ class _MiBalanceScreenState extends State<MiBalanceScreen> with TickerProviderSt
                       ? _buildEmptyDayState()
                       : _buildPremiumBalance(balanceData),
           bottomNavigationBar: _buildBottomNavigation(),
-          floatingActionButton: _buildFABRegistro(),
         );
       },
     );
@@ -1305,81 +1304,6 @@ class _MiBalanceScreenState extends State<MiBalanceScreen> with TickerProviderSt
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al abrir perfil: $e')));
       }
     }
-  }
-
-  Widget _buildFABRegistro() {
-    return FloatingActionButton(
-      onPressed: _showRegistroOptions,
-      backgroundColor: const Color(0xFF1E88E5),
-      child: const Icon(Icons.add_rounded, color: Colors.white),
-    );
-  }
-
-  void _showRegistroOptions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40, height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const Text(
-              '¿Qué quieres registrar?',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.restaurant_menu_rounded, color: Color(0xFF2563EB)),
-              ),
-              title: const Text('Registro de Comida', style: TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: const Text('Añade alimentos con macros calculados'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await SmartMealRegistrySheet.show(context);
-                if (mounted) _loadBalance();
-              },
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.fitness_center_rounded, color: Color(0xFF10B981)),
-              ),
-              title: const Text('Registrar Rutina', style: TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: const Text('Añade ejercicios y calcula calorías quemadas'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await RoutineBuilderSheet.show(context);
-                if (mounted) _loadBalance();
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildErrorView() {

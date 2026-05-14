@@ -68,8 +68,12 @@ class ApiService {
       print('📥 Respuesta del servidor: ${response.data}');
       return LoginResponse.fromJson(response.data);
     } on DioException catch (e) {
-      print('❌ Error en login: ${e.response?.data}');
-      throw Exception(e.response?.data['detail'] ?? 'Error en login');
+      print('❌ Error en login: ${e.type} - ${e.message}');
+      if (e.response != null) {
+        print('   Detalle: ${e.response?.data}');
+        throw Exception(e.response?.data['detail'] ?? 'Error en el servidor');
+      }
+      throw Exception('Error de conexión: ${e.type}');
     }
   }
 
