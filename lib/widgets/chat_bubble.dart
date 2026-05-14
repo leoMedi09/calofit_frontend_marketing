@@ -189,11 +189,6 @@ class AssistantMessageBubble extends StatelessWidget {
                   if (sec.tipo == 'comida') {
                     return RecipeCard(
                       section: sec,
-                      onAdd: onAction != null
-                          ? () => onAction!(sec.consultaId != null
-                              ? "CALOFIT_REGISTER:${sec.consultaId}"
-                              : "Comí ${sec.nombre}")
-                          : null,
                       onSave: onSave != null ? () => onSave!(sec) : null,
                     );
                   }
