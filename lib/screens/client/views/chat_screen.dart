@@ -22,11 +22,11 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  
+
   final ApiService _apiService = ApiService();
   final FlutterTts _flutterTts = FlutterTts();
   final stt.SpeechToText _speech = stt.SpeechToText();
@@ -39,13 +39,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   int _speechSession = 0;
   /// Un solo envío por dictado (manual stop vs finalResult).
   bool _speechSubmitHandled = false;
-  
+
   bool _isTyping = false;
   bool _isListening = false;
   bool _isKeyboardVisible = false;
-  bool _isMuted = false; 
-  String? _speakingMessageId; 
-  Client? _clientProfile; 
+  bool _isMuted = false;
+  String? _speakingMessageId;
+  Client? _clientProfile;
   String? _latestFuzzyHint;
   bool _showHelpBanner = true;
 
@@ -58,25 +58,55 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     {
       'role': 'assistant',
       'response': AssistantResponse(
-        usuario: '',
-        dataCientifica: ScientificData(progresoDiario: {}),
-        respuestaEstructurada: StructuredResponse(
-          textoConversacional: '¡Hola! Soy CaloFit. 🤖\nPuedes preguntarme sobre nutrición o simplemente decirme "Comí arroz con pollo" para registrarlo.',
-          secciones: []
-        )
+          usuario: '',
+          dataCientifica: ScientificData(progresoDiario: {}),
+          respuestaEstructurada: StructuredResponse(
+              textoConversacional: '¡Hola! Soy CaloFit. 🤖\nPuedes preguntarme sobre nutrición o simplemente decirme "Comí arroz con pollo" para registrarlo.',
+              secciones: []
+          )
       ),
       'type': 'assistant_v3',
     },
   ];
 
+  // Controla si ya pasó el primer build (para didChangeDependencies)
+  bool _firstBuild = true;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initTts();
     _initSpeech();
     _focusNode.addListener(_onFocusChange);
     _loadClientProfile();
     _loadChatHistory();
+  }
+
+  /// Se dispara cuando el usuario regresa a esta pantalla desde otra ruta.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_firstBuild) {
+      _firstBuild = false;
+      return; 
+    }
+    // Al regresar, forzamos un redibujado y un salto inmediato al final
+    // para evitar el espacio en blanco antes de la animación de ajuste.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        _scrollToBottom();
+      }
+    });
+  }
+
+  /// Se dispara cuando la app vuelve al primer plano (resume desde background).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _scrollToBottom();
+    }
   }
 
   Future<void> _initSpeech() async {
@@ -172,11 +202,16 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         }
         if (loaded.isNotEmpty && mounted) {
           if (_chatSessionDirty) {
+            _scrollToBottom();
             return;
           }
           setState(() => _messages = loaded);
           _scrollToBottom();
+        } else if (mounted) {
+          _scrollToBottom();
         }
+      } else if (mounted) {
+        _scrollToBottom();
       }
     } catch (e) {
       debugPrint('Error cargando historial: $e');
@@ -290,7 +325,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _inputController.dispose();
+    _scrollController.dispose();
     _focusNode.dispose();
     _flutterTts.stop();
     super.dispose();
@@ -392,7 +429,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
     _chatSessionDirty = true;
 
-    // Limpiamos el panel de escritura si enviamos texto normal 
+    // Limpiamos el panel de escritura si enviamos texto normal
     // o si el micrófono había rellenado este mismo texto en el panel.
     if (quickMessage == null || quickMessage == _inputController.text.trim()) {
       _inputController.clear();
@@ -489,7 +526,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
     // Detectar Intención Simple (Heurística del lado del cliente para rapidez)
     final lowerText = text.toLowerCase();
-    
+
     // Palabras detonantes de REGISTRO
     final logKeywords = [
       // Comidas y bebidas
@@ -589,21 +626,21 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       } else {
         // 👉 RUTA CONSULTA (/consultar)
         // Construir historial reducido
-        final history = _messages.length > 2 
-          ? _messages.sublist(_messages.length > 6 ? _messages.length - 6 : 0, _messages.length - 1)
+        final history = _messages.length > 2
+            ? _messages.sublist(_messages.length > 6 ? _messages.length - 6 : 0, _messages.length - 1)
             .where((m) => m['type'] != 'registro_exitoso') // Filtrar logs puros del historial de chat
             .map((m) {
-               String content = "";
-               if (m['role'] == 'user') content = m['content'];
-               else if (m['response'] is AssistantResponse) content = (m['response'] as AssistantResponse).respuestaEstructurada.textoConversacional;
-               else content = m['content'] ?? "";
-               return {'role': m['role'] == 'user' ? 'user' : 'assistant', 'content': content};
-            }).toList() 
-          : null;
+          String content = "";
+          if (m['role'] == 'user') content = m['content'];
+          else if (m['response'] is AssistantResponse) content = (m['response'] as AssistantResponse).respuestaEstructurada.textoConversacional;
+          else content = m['content'] ?? "";
+          return {'role': m['role'] == 'user' ? 'user' : 'assistant', 'content': content};
+        }).toList()
+            : null;
 
         final result = await _apiService.consultarAsistente(text, token, historial: history);
         final responseObj = AssistantResponse.fromJson(result);
-        
+
         // Actualizar datos si la consulta trajo progreso (ej: "¿cuánto me falta?")
         balance.updateFromAssistant(responseObj.dataCientifica.progresoDiario);
 
@@ -624,7 +661,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                 .join(", ");
             ttsText = "${ttsText.split('.').first}. Te sugiero: $names";
           }
-          
+
           if (!_isMuted) _speak(ttsText, "answ_${_messages.length}");
         });
         _saveChatHistory();
@@ -640,9 +677,26 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   }
 
   void _scrollToBottom() {
+    if (!mounted) return;
+    
+    // Usamos addPostFrameCallback para asegurar que el motor de renderizado 
+    // ya procesó los widgets y conoce las dimensiones reales.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(_scrollController.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      if (mounted && _scrollController.hasClients) {
+        // 1. Salto instantáneo: Elimina el "blanco" de inmediato posicionando el scroll al final actual.
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+
+        // 2. Ajuste fino: Tras un brevísimo respiro, animamos por si aparecieron elementos 
+        // de altura dinámica (imágenes/tarjetas) que movieron el final unos píxeles más abajo.
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && _scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+            );
+          }
+        });
       }
     });
   }
@@ -660,7 +714,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
           children: [
             if (_showHelpBanner) _buildHelpBanner(),
             Expanded(child: _buildMessageList()),
-            
+
             if (_isTyping) _buildTypingIndicator(),
             // En landscape priorizamos el input y evitamos overflows por altura reducida.
             if (!_isTyping && !isLandscape) _buildQuickActions(),
@@ -696,7 +750,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
               children: [
                 const Text('Asistente CaloFit', style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold)),
                 Text(
-                  _latestFuzzyHint ?? 'En línea', 
+                  _latestFuzzyHint ?? 'En línea',
                   style: TextStyle(color: Colors.green.shade600, fontSize: 11),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -741,10 +795,10 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       builder: (context, provider, _) {
         final summary = provider.dailySummary;
         if (summary == null) return const SizedBox.shrink();
-        
+
         final meta = summary.planObjetivo?.caloriasObjetivo ?? 2000;
         final restante = (meta - summary.calorias).clamp(0, meta);
-        
+
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -803,7 +857,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       itemCount: _messages.length,
       itemBuilder: (context, index) {
         final msg = _messages[index];
-        
+
         if (msg['type'] == 'registro_exitoso') {
           return _buildRichLogCard(msg);
         } else if (msg['role'] == 'assistant' && msg['response'] is AssistantResponse) {
@@ -848,7 +902,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         } else if (msg['role'] == 'user') {
           return _buildUserBubble(msg['content']);
         }
-        
+
         // Bubbles de texto simple (errores, etc)
         return _buildSimpleSystemBubble(msg['content'], isError: msg['type'] == 'error');
       },
@@ -860,7 +914,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     final isFood = msg['badge'] == 'comida' || msg['badge'] == 'alimento'; // Ajustar según backend return
     final data = msg['data'] ?? {};
     final kcal = data['calorias'] ?? 0;
-    
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -885,13 +939,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                    child: Icon(isFood ? Icons.restaurant_menu_rounded : Icons.directions_run_rounded, 
-                      color: isFood ? Colors.orange : Colors.green, size: 20),
+                    child: Icon(isFood ? Icons.restaurant_menu_rounded : Icons.directions_run_rounded,
+                        color: isFood ? Colors.orange : Colors.green, size: 20),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      isFood ? "Comida Registrada" : "Ejercicio Registrado", 
+                      isFood ? "Comida Registrada" : "Ejercicio Registrado",
                       style: TextStyle(fontWeight: FontWeight.bold, color: isFood ? Colors.orange.shade800 : Colors.green.shade800),
                     ),
                   ),
@@ -926,13 +980,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                       children: [
                         _buildMiniStat(Icons.flash_on_rounded, "$kcal kcal", Colors.orange, isMain: true),
                         const SizedBox(height: 12),
-                        
+
                         // 🔥 MACROS PRINCIPALES
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            if (isFood && (data['proteinas_g'] ?? 0) > 0) 
+                            if (isFood && (data['proteinas_g'] ?? 0) > 0)
                               _buildMiniStat(Icons.fitness_center_rounded, "${data['proteinas_g']}g Prot", Colors.red.shade400),
                             if (isFood && (data['carbohidratos_g'] ?? 0) > 0)
                               _buildMiniStat(Icons.grain_rounded, "${data['carbohidratos_g']}g Carb", Colors.orange.shade400),
@@ -940,21 +994,21 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                               _buildMiniStat(Icons.water_drop_rounded, "${data['grasas_g']}g Gras", Colors.blue.shade400),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 8),
-                        
+
                         // 🍭 MICROS (Azúcar, Fibra, Sodio) - Diseño más sutil
-                        if (isFood) 
+                        if (isFood)
                           Wrap(
                             spacing: 8,
                             runSpacing: 4,
                             children: [
-                               if ((data['azucar_g'] ?? 0) > 0) 
-                                 _buildMiniStat(Icons.icecream_rounded, "${data['azucar_g']}g Azú", Colors.purple.shade300, isMicro: true),
-                               if ((data['fibra_g'] ?? 0) > 0)
-                                 _buildMiniStat(Icons.eco_rounded, "${data['fibra_g']}g Fib", Colors.green.shade600, isMicro: true),
-                               if ((data['sodio_mg'] ?? 0) > 0)
-                                 _buildMiniStat(Icons.opacity_rounded, "${data['sodio_mg']}mg Sod", Colors.blueGrey.shade400, isMicro: true),
+                              if ((data['azucar_g'] ?? 0) > 0)
+                                _buildMiniStat(Icons.icecream_rounded, "${data['azucar_g']}g Azú", Colors.purple.shade300, isMicro: true),
+                              if ((data['fibra_g'] ?? 0) > 0)
+                                _buildMiniStat(Icons.eco_rounded, "${data['fibra_g']}g Fib", Colors.green.shade600, isMicro: true),
+                              if ((data['sodio_mg'] ?? 0) > 0)
+                                _buildMiniStat(Icons.opacity_rounded, "${data['sodio_mg']}mg Sod", Colors.blueGrey.shade400, isMicro: true),
                             ],
                           ),
                       ],
@@ -967,7 +1021,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       ),
     );
   }
-  
+
   Widget _buildMiniStat(IconData icon, String text, Color color, {bool isMain = false, bool isMicro = false}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -975,12 +1029,12 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         Icon(icon, size: isMain ? 16 : 14, color: color),
         const SizedBox(width: 4),
         Text(
-          text, 
-          style: TextStyle(
-            fontSize: isMain ? 14 : (isMicro ? 11 : 12), 
-            fontWeight: isMain ? FontWeight.bold : FontWeight.w600, 
-            color: isMicro ? Colors.grey.shade600 : Colors.grey.shade800
-          )
+            text,
+            style: TextStyle(
+                fontSize: isMain ? 14 : (isMicro ? 11 : 12),
+                fontWeight: isMain ? FontWeight.bold : FontWeight.w600,
+                color: isMicro ? Colors.grey.shade600 : Colors.grey.shade800
+            )
         )
       ],
     );
@@ -1008,7 +1062,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildSimpleSystemBubble(String? text, {bool isError = false}) {
-     return Align(
+    return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12, right: 50),
@@ -1237,8 +1291,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                 color: _isListening ? Colors.red.shade100 : Colors.grey.shade100,
                 shape: BoxShape.circle,
               ),
-              child: Icon(_isListening ? Icons.mic : Icons.mic_none_rounded, 
-                color: _isListening ? Colors.red : Colors.grey.shade700),
+              child: Icon(_isListening ? Icons.mic : Icons.mic_none_rounded,
+                  color: _isListening ? Colors.red : Colors.grey.shade700),
             ),
           ),
           const SizedBox(width: 10),
